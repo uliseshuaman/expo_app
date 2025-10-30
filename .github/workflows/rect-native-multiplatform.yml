@@ -1,0 +1,111 @@
+name: React Native CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  setup:
+    name: Setup & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+  expo:
+    name: Expo Build
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Expo CLI
+        run: npm install -g expo-cli
+
+      - name: Login to Expo (optional)
+        run: expo login -u ${{ secrets.EXPO_USERNAME }} -p ${{ secrets.EXPO_PASSWORD }}
+
+      - name: Build Expo Web
+        run: expo build:web
+
+      # Puedes usar EAS Build si prefieres:
+      # - name: Install EAS CLI
+      #   run: npm install -g eas-cli
+      # - name: EAS Build Android
+      #   run: eas build --platform android --non-interactive
+      # - name: EAS Build iOS
+      #   run: eas build --platform ios --non-interactive
+
+  android:
+    name: Android Native Build
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Android APK
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+
+  ios:
+    name: iOS Native Build
+    runs-on: macos-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+
+      - name: Build iOS
+        run: |
+          xcodebuild -workspace ios/YourApp.xcworkspace \
+            -scheme YourApp \
+            -sdk iphoneos \
+            -configuration Release \
+            build
+
+      # Opcional: subir artefactos .app o .ipa
